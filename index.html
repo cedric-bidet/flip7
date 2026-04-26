@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flip 7 · Scoreboard</title>
+  <meta name="description" content="Tracker de score pour le jeu Flip 7" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Archivo+Black&family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { margin: 0; }
+    /* Hide number input arrows */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+    const { useState } = React;
+
+    function Flip7Tracker() {
+      const [players, setPlayers] = useState([]);
+      const [newPlayerName, setNewPlayerName] = useState('');
+      const [rounds, setRounds] = useState([]);
+      const [currentScores, setCurrentScores] = useState({});
+
+      const TARGET = 200;
+
+      const addPlayer = () => {
+        const name = newPlayerName.trim();
+        if (!name) return;
+        if (players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+          setNewPlayerName('');
+          return;
+        }
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        setPlayers([...players, { id, name }]);
+        setNewPlayerName('');
+      };
+
+      const removePlayer = (id) => {
+        setPlayers(players.filter((p) => p.id !== id));
+        setRounds(rounds.map((r) => {
+          const nr = { ...r };
+          delete nr[id];
+          return nr;
+        }));
+        const nc = { ...currentScores };
+        delete nc[id];
+        setCurrentScores(nc);
+      };
+
+      const setScore = (playerId, value) => {
+        setCurrentScores({ ...currentScores, [playerId]: value });
+      };
+
+      const setBust = (playerId) => {
+        setCurrentScores({ ...currentScores, [playerId]: '0' });
+      };
+
+      const validateRound = () => {
+        if (players.length === 0) return;
+        const round = {};
+        players.forEach((p) => {
+          const v = currentScores[p.id];
+          const parsed = v === '' || v === undefined ? 0 : parseInt(v, 10);
+          round[p.id] = isNaN(parsed) ? 0 : parsed;
+        });
+        setRounds([...rounds, round]);
+        setCurrentScores({});
+      };
+
+      const removeRound = (idx) => {
+        setRounds(rounds.filter((_, i) => i !== idx));
+      };
+
+      const getTotal = (playerId) =>
+        rounds.reduce((s, r) => s + (r[playerId] || 0), 0);
+
+      const playersWithTotal = players.map((p) => ({ ...p, total: getTotal(p.id) }));
+      const sortedByTotal = [...playersWithTotal].sort((a, b) => b.total - a.total);
+      const maxTotal = playersWithTotal.length ? Math.max(...playersWithTotal.map((p) => p.total)) : 0;
+      const winner = maxTotal >= TARGET ? sortedByTotal[0] : null;
+
+      const resetScores = () => { setRounds([]); setCurrentScores({}); };
+
+      const handleAddKey = (e) => { if (e.key === 'Enter') addPlayer(); };
+      const handleScoreKey = (e) => { if (e.key === 'Enter') validateRound(); };
+
+      const YELLOW = '#FFE600';
+      const BLACK = '#0A0A0A';
+      const PAPER = '#F5F1E8';
+
+      return (
+        <div className="min-h-screen w-full" style={{
+          backgroundColor: PAPER,
+          fontFamily: '"Inter", system-ui, sans-serif',
+          color: BLACK,
+          backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.025) 0px, rgba(0,0,0,0.025) 1px, transparent 1px, transparent 32px)',
+        }}>
+          <div className="max-w-3xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
+
+            <header className="border-b-4 border-black pb-4 mb-6">
+              <div className="flex items-end justify-between gap-4">
+                <h1 className="leading-[0.85] tracking-tighter" style={{ fontFamily: '"Archivo Black", sans-serif', fontSize: 'clamp(3.5rem, 14vw, 7rem)' }}>
+                  FLIP
+                  <span className="inline-block ml-2 px-3 py-0 -translate-y-1" style={{ backgroundColor: YELLOW, border: `4px solid ${BLACK}`, boxShadow: `6px 6px 0 ${BLACK}` }}>7</span>
+                </h1>
+                {rounds.length > 0 && (
+                  <button onClick={resetScores} className="shrink-0 text-[10px] uppercase tracking-[0.2em] font-bold border-2 border-black px-3 py-2 hover:bg-black hover:text-white transition">Reset</button>
+                )}
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.25em] font-bold">
+                <span>Scoreboard</span>
+                <span className="text-stone-500">
+                  {players.length} {players.length > 1 ? 'joueurs' : 'joueur'} · {rounds.length} {rounds.length > 1 ? 'manches' : 'manche'} · cible {TARGET}
+                </span>
+              </div>
+            </header>
+
+            {winner && (
+              <div className="mb-6 p-4 border-4 border-black flex items-center gap-4" style={{ backgroundColor: YELLOW, boxShadow: `8px 8px 0 ${BLACK}` }}>
+                <div className="text-4xl" style={{ fontFamily: '"Archivo Black", sans-serif' }}>★</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] uppercase tracking-[0.25em] font-bold">Vainqueur</div>
+                  <div className="text-2xl sm:text-3xl truncate" style={{ fontFamily: '"Archivo Black", sans-serif' }}>
+                    {winner.name.toUpperCase()} · <span style={{ fontFamily: '"Space Mono", monospace' }}>{winner.total}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <section className="mb-6">
+              <label className="block text-[10px] uppercase tracking-[0.25em] font-bold mb-2">Ajouter un joueur</label>
+              <div className="flex gap-0">
+                <input type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} onKeyDown={handleAddKey} placeholder="Nom"
+                  className="flex-1 px-4 py-3 border-4 border-black bg-white focus:outline-none placeholder-stone-400 font-medium" style={{ borderRight: 'none' }} />
+                <button onClick={addPlayer} disabled={!newPlayerName.trim()}
+                  className="px-5 py-3 border-4 border-black font-bold uppercase tracking-wider text-sm disabled:opacity-30 disabled:cursor-not-allowed transition active:translate-x-[2px] active:translate-y-[2px]"
+                  style={{ backgroundColor: BLACK, color: 'white' }}>+ Add</button>
+              </div>
+            </section>
+
+            {players.length === 0 ? (
+              <div className="text-center py-20 border-4 border-dashed border-black" style={{ backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                <div className="text-3xl mb-2" style={{ fontFamily: '"Archivo Black", sans-serif' }}>∅</div>
+                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-stone-500">Aucun joueur</p>
+              </div>
+            ) : (
+              <React.Fragment>
+                <section className="mb-8">
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h2 className="text-[10px] uppercase tracking-[0.25em] font-bold">
+                      Manche {String(rounds.length + 1).padStart(2, '0')}
+                    </h2>
+                    <span className="text-[10px] uppercase tracking-[0.25em] font-bold text-stone-500">Score / Total</span>
+                  </div>
+
+                  <div className="border-4 border-black bg-white" style={{ boxShadow: `8px 8px 0 ${BLACK}` }}>
+                    {sortedByTotal.map((player, idx) => {
+                      const isLeader = idx === 0 && player.total > 0 && playersWithTotal.length > 1;
+                      const isLast = idx === sortedByTotal.length - 1;
+                      return (
+                        <div key={player.id} className={`flex items-stretch ${isLast ? '' : 'border-b-2 border-black'}`}>
+                          <div className="w-10 sm:w-12 flex items-center justify-center border-r-2 border-black text-xs font-bold"
+                            style={{ backgroundColor: isLeader ? YELLOW : 'transparent', fontFamily: '"Space Mono", monospace' }}>
+                            {String(idx + 1).padStart(2, '0')}
+                          </div>
+                          <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                            <div className="text-sm sm:text-base font-bold uppercase tracking-wide truncate" style={{ fontFamily: '"Archivo Black", sans-serif' }}>
+                              {player.name}
+                            </div>
+                            <div className="text-2xl sm:text-3xl leading-none mt-0.5" style={{ fontFamily: '"Space Mono", monospace' }}>
+                              {player.total}
+                              <span className="text-[10px] uppercase tracking-widest text-stone-500 ml-1.5 font-bold">pts</span>
+                            </div>
+                          </div>
+                          <div className="flex items-stretch border-l-2 border-black">
+                            <input type="number" inputMode="numeric"
+                              value={currentScores[player.id] ?? ''}
+                              onChange={(e) => setScore(player.id, e.target.value)}
+                              onKeyDown={handleScoreKey}
+                              placeholder="—"
+                              className="w-16 sm:w-20 text-center text-xl sm:text-2xl font-bold focus:outline-none focus:bg-yellow-100"
+                              style={{ fontFamily: '"Space Mono", monospace', backgroundColor: 'transparent' }} />
+                            <button onClick={() => setBust(player.id)} title="Bust = 0"
+                              className="w-10 sm:w-12 flex items-center justify-center border-l-2 border-black hover:bg-black hover:text-white transition text-xs font-bold uppercase tracking-wider"
+                              style={{ fontFamily: '"Space Mono", monospace' }}>0</button>
+                            <button onClick={() => removePlayer(player.id)} title="Supprimer"
+                              className="w-10 sm:w-12 flex items-center justify-center border-l-2 border-black hover:bg-red-500 hover:text-white text-stone-400 transition">×</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button onClick={validateRound}
+                    className="mt-5 w-full py-4 border-4 border-black font-bold uppercase tracking-[0.2em] text-sm transition"
+                    style={{ backgroundColor: YELLOW, boxShadow: `6px 6px 0 ${BLACK}` }}>
+                    ▸ Valider la manche {String(rounds.length + 1).padStart(2, '0')}
+                  </button>
+                </section>
+
+                {rounds.length > 0 && (
+                  <section>
+                    <h2 className="text-[10px] uppercase tracking-[0.25em] font-bold mb-3">Historique</h2>
+                    <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                      <table className="w-full border-4 border-black bg-white text-sm"
+                        style={{ borderCollapse: 'separate', borderSpacing: 0, boxShadow: `6px 6px 0 ${BLACK}` }}>
+                        <thead>
+                          <tr style={{ backgroundColor: BLACK, color: 'white' }} className="text-[10px] uppercase tracking-[0.15em]">
+                            <th className="text-left p-3 font-bold">M.</th>
+                            {players.map((p) => (
+                              <th key={p.id} className="text-right p-3 font-bold whitespace-nowrap">{p.name}</th>
+                            ))}
+                            <th className="p-3 w-8"></th>
+                          </tr>
+                        </thead>
+                        <tbody style={{ fontFamily: '"Space Mono", monospace' }}>
+                          {rounds.map((r, idx) => (
+                            <tr key={idx} className="border-t-2 border-black">
+                              <td className="p-3 text-stone-500 font-bold">{String(idx + 1).padStart(2, '0')}</td>
+                              {players.map((p) => (
+                                <td key={p.id} className="text-right p-3 font-bold" style={{ color: r[p.id] === 0 ? '#DC2626' : BLACK }}>
+                                  {r[p.id]}
+                                </td>
+                              ))}
+                              <td className="p-3 text-right">
+                                <button onClick={() => removeRound(idx)} className="text-stone-300 hover:text-red-600 transition text-base font-bold" title="Supprimer cette manche">×</button>
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="border-t-4 border-black" style={{ backgroundColor: YELLOW }}>
+                            <td className="p-3 text-[10px] uppercase tracking-[0.2em] font-bold" style={{ fontFamily: '"Inter", sans-serif' }}>Total</td>
+                            {players.map((p) => (
+                              <td key={p.id} className="text-right p-3 text-base font-bold">{getTotal(p.id)}</td>
+                            ))}
+                            <td></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
+              </React.Fragment>
+            )}
+
+            <footer className="mt-12 mb-4 text-center">
+              <div className="inline-block border-2 border-black px-3 py-1 text-[9px] uppercase tracking-[0.3em] font-bold">
+                Press your luck · don't bust
+              </div>
+            </footer>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<Flip7Tracker />);
+  </script>
+</body>
+</html>
